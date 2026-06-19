@@ -8,6 +8,42 @@ let accessToken = null;
 let tokenExpiresAt = 0;
 let onAuthChangeCallback = null;
 
+let silentRefreshTimeoutId = null;
+let sessionExpirationTimeoutId = null;
+
+/**
+ * Agenda a renovação silenciosa do token de acesso e o logout de segurança.
+ * @param {number} expiresInSeconds - Tempo restante em segundos
+ */
+function scheduleTokenRefresh(expiresInSeconds) {
+  if (silentRefreshTimeoutId) clearTimeout(silentRefreshTimeoutId);
+  if (sessionExpirationTimeoutId) clearTimeout(sessionExpirationTimeoutId);
+
+  const msUntilExpiration = expiresInSeconds * 1000;
+  // Tenta renovar 5 minutos antes de expirar (300.000 ms), ou imediatamente se faltar menos de 5 min
+  const msUntilRefresh = Math.max(0, msUntilExpiration - 5 * 60 * 1000);
+
+  console.log(`[Auth] Agendando renovação silenciosa em ${(msUntilRefresh / 1000 / 60).toFixed(1)} minutos, e logout de segurança em ${(msUntilExpiration / 1000 / 60).toFixed(1)} minutos.`);
+
+  // 1. Agendar renovação silenciosa
+  silentRefreshTimeoutId = setTimeout(() => {
+    console.log('[Auth] Iniciando renovação silenciosa do token de acesso...');
+    if (tokenClient) {
+      try {
+        tokenClient.requestAccessToken({ prompt: 'none' });
+      } catch (err) {
+        console.error('[Auth] Erro ao disparar renovação silenciosa:', err);
+      }
+    }
+  }, msUntilRefresh);
+
+  // 2. Agendar logout de segurança se o token expirar de fato
+  sessionExpirationTimeoutId = setTimeout(() => {
+    console.warn('[Auth] O token expirou completamente. Efetuando logout de segurança...');
+    logout();
+  }, msUntilExpiration);
+}
+
 // Obter as credenciais salvas (Client ID padrão)
 export function getSavedClientId() {
   return DEFAULT_CLIENT_ID;
@@ -101,11 +137,9 @@ export function initAuth(onStatusChange) {
     accessToken = savedToken;
     tokenExpiresAt = Number(savedExpiresAt);
     
-    // Agendar logout quando o token expirar
+    // Agendar renovação silenciosa com base no tempo restante
     const msRemaining = tokenExpiresAt - Date.now();
-    setTimeout(() => {
-      logout();
-    }, msRemaining);
+    scheduleTokenRefresh(msRemaining / 1000);
     
     // Atualizar as informações do perfil em segundo plano para renovar o link da imagem
     fetchUserInfo(accessToken).then((userInfo) => {
@@ -118,9 +152,7 @@ export function initAuth(onStatusChange) {
       onAuthChangeCallback(true, JSON.parse(savedUser));
     }
   } else {
-    if (onAuthChangeCallback) {
-      onAuthChangeCallback(false, null);
-    }
+    // Não envia status logoff imediatamente; a tentativa silenciosa abaixo cuidará disso
   }
 
   // Inicializar o cliente OAuth do Google
@@ -135,6 +167,16 @@ export function initAuth(onStatusChange) {
 
         if (tokenResponse.error !== undefined) {
           console.error('Erro na autenticação Google:', tokenResponse);
+          
+          // Se a tentativa de login silencioso falhar por falta de sessão ativa no Google
+          if (tokenResponse.error === 'immediate_failed') {
+            console.log('[Auth] Login silencioso automático falhou. Exibindo tela de login.');
+            if (onAuthChangeCallback) {
+              onAuthChangeCallback(false, null);
+            }
+            return;
+          }
+
           // Tratar erros conhecidos
           if (tokenResponse.error === 'popup_closed_by_user') {
             showLoginStatus('Login cancelado pelo usuário.', 'warning');
@@ -144,6 +186,10 @@ export function initAuth(onStatusChange) {
             showLoginStatus('Acesso negado: o aplicativo precisa de permissões para funcionar.', 'error');
           } else {
             showLoginStatus('Erro ao autenticar: ' + (tokenResponse.error_description || tokenResponse.error), 'error');
+          }
+
+          if (onAuthChangeCallback) {
+            onAuthChangeCallback(false, null);
           }
           return;
         }
@@ -157,10 +203,8 @@ export function initAuth(onStatusChange) {
         localStorage.setItem('controlator_access_token', accessToken);
         localStorage.setItem('controlator_token_expires_at', tokenExpiresAt);
 
-        // Agendar expiração automática
-        setTimeout(() => {
-          logout();
-        }, expiresInSeconds * 1000);
+        // Agendar renovação e expiração do token
+        scheduleTokenRefresh(expiresInSeconds);
 
         // Ocultar avisos de status antigos
         hideLoginStatus();
@@ -175,9 +219,19 @@ export function initAuth(onStatusChange) {
       },
     });
     console.log('Google Identity Services inicializado com sucesso.');
+
+    // Tentar login silencioso se não houver sessão ativa local no primeiro carregamento
+    if (!accessToken || tokenExpiresAt <= Date.now()) {
+      console.log('[Auth] Sem sessão local ativa. Tentando login silencioso...');
+      setLoginButtonLoading(true);
+      tokenClient.requestAccessToken({ prompt: 'none' });
+    }
   } catch (err) {
     console.error('Falha ao inicializar Google Identity Services Client:', err);
     tokenClient = null;
+    if (onAuthChangeCallback) {
+      onAuthChangeCallback(false, null);
+    }
   }
 }
 
@@ -235,6 +289,15 @@ export function login() {
  * Remove a autenticação
  */
 export function logout() {
+  if (silentRefreshTimeoutId) {
+    clearTimeout(silentRefreshTimeoutId);
+    silentRefreshTimeoutId = null;
+  }
+  if (sessionExpirationTimeoutId) {
+    clearTimeout(sessionExpirationTimeoutId);
+    sessionExpirationTimeoutId = null;
+  }
+
   if (accessToken) {
     try {
       google.accounts.oauth2.revokeToken(accessToken, () => {
