@@ -264,6 +264,7 @@ body.light-theme .btn-secondary:hover {
   font-family: var(--font-body);
   font-size: 0.95rem;
   transition: var(--transition-smooth);
+  width: 100%;
 }
 
 .input-control input:focus,
@@ -1344,10 +1345,9 @@ body.light-theme .fab-label {
 
 
 
-  /* REORGANIZAÇÃO DO MENU INFERIOR FLUTUANTE */
   .header-nav {
     position: fixed;
-    bottom: 16px;
+    bottom: max(24px, calc(16px + env(safe-area-inset-bottom)));
     left: calc(50% - 31px); /* Deslocado ligeiramente para a esquerda para abrir espaço para o FAB ao lado */
     transform: translateX(-50%);
     width: calc(100% - 30px);
@@ -1443,7 +1443,7 @@ body.light-theme .fab-label {
   }
 
   .fab-container {
-    bottom: 16px;
+    bottom: max(24px, calc(16px + env(safe-area-inset-bottom)));
     left: calc(50% + 81px);
     right: auto;
     width: 50px;
