@@ -9,7 +9,9 @@ import {
   adicionarTransacoesEmLote,
   salvarConfiguracoes,
   carregarPerfil,
-  salvarPerfil
+  salvarPerfil,
+  excluirTransacao,
+  atualizarTransacao
 } from './sheets.js';
 import { 
   initUI, 
@@ -365,6 +367,46 @@ async function sincronizarDados() {
       } catch (error) {
         console.error('Erro ao adicionar transação:', error);
         showToast('Erro ao salvar transação: ' + error.message, 'error');
+      } finally {
+        hideLoading();
+      }
+    },
+    
+    onUpdateTransaction: async (id, tx) => {
+      showLoading('Atualizando lançamento na sua planilha...');
+      try {
+        await atualizarTransacao(id, tx);
+        
+        // Recarregar dados para manter sincronia perfeita
+        const transactions = await carregarTransacoes();
+        APP_STATE.transactions = transactions;
+        
+        updateDashboard(APP_STATE.transactions, APP_STATE.configs);
+        renderTransactionsTable(APP_STATE.transactions);
+        showToast('Lançamento atualizado com sucesso!', 'success');
+      } catch (error) {
+        console.error('Erro ao atualizar transação:', error);
+        showToast('Erro ao atualizar lançamento: ' + error.message, 'error');
+      } finally {
+        hideLoading();
+      }
+    },
+
+    onDeleteTransaction: async (id) => {
+      showLoading('Excluindo lançamento da sua planilha...');
+      try {
+        await excluirTransacao(id);
+        
+        // Recarregar dados para manter sincronia perfeita
+        const transactions = await carregarTransacoes();
+        APP_STATE.transactions = transactions;
+        
+        updateDashboard(APP_STATE.transactions, APP_STATE.configs);
+        renderTransactionsTable(APP_STATE.transactions);
+        showToast('Lançamento excluído com sucesso!', 'success');
+      } catch (error) {
+        console.error('Erro ao excluir transação:', error);
+        showToast('Erro ao excluir lançamento: ' + error.message, 'error');
       } finally {
         hideLoading();
       }

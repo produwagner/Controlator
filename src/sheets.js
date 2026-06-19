@@ -469,3 +469,75 @@ export async function salvarPerfil(novoPerfil) {
     body: JSON.stringify({ values: updatedRows })
   });
 }
+
+/**
+ * Exclui uma transação pelo ID
+ * @param {string} id - ID da transação a excluir
+ */
+export async function excluirTransacao(id) {
+  if (!activeSpreadsheetId) await buscarOuCriarPlanilha();
+
+  // 1. Carregar todas as linhas
+  const response = await googleRequest(`https://sheets.googleapis.com/v4/spreadsheets/${activeSpreadsheetId}/values/Transacoes!A:G`);
+  const rows = response.values || [];
+  if (rows.length <= 1) return;
+
+  // Filtrar mantendo as linhas que NÃO possuem o ID fornecido (preservando o cabeçalho)
+  const updatedRows = [rows[0], ...rows.slice(1).filter(row => row[0] !== id)];
+
+  // 2. Limpar toda a tabela Transacoes a partir do cabeçalho
+  await googleRequest(`https://sheets.googleapis.com/v4/spreadsheets/${activeSpreadsheetId}/values/Transacoes!A2:G10000:clear`, {
+    method: 'POST'
+  });
+
+  // 3. Gravar as linhas atualizadas a partir da linha 2
+  if (updatedRows.length > 1) {
+    const dataToWrite = updatedRows.slice(1);
+    const range = `Transacoes!A2:G${dataToWrite.length + 1}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${activeSpreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`;
+    await googleRequest(url, {
+      method: 'PUT',
+      body: JSON.stringify({ values: dataToWrite })
+    });
+  }
+}
+
+/**
+ * Atualiza uma transação existente pelo ID
+ * @param {string} id - ID da transação a atualizar
+ * @param {Object} tx - Objeto com os novos dados da transação (date, type, category, value, account, description)
+ */
+export async function atualizarTransacao(id, tx) {
+  if (!activeSpreadsheetId) await buscarOuCriarPlanilha();
+
+  // 1. Carregar todas as linhas para achar o índice correspondente
+  const response = await googleRequest(`https://sheets.googleapis.com/v4/spreadsheets/${activeSpreadsheetId}/values/Transacoes!A:G`);
+  const rows = response.values || [];
+  if (rows.length <= 1) return;
+
+  let rowIndex = -1;
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === id) {
+      rowIndex = i;
+      break;
+    }
+  }
+
+  if (rowIndex === -1) {
+    throw new Error('Transação não encontrada na planilha.');
+  }
+
+  // Formatar valor com ponto decimal
+  const valueFormatted = String(tx.value).replace(',', '.');
+
+  // 2. Gravar os novos dados especificamente nessa linha
+  const range = `Transacoes!A${rowIndex + 1}:G${rowIndex + 1}`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${activeSpreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`;
+  
+  const values = [[id, tx.date, tx.type, tx.category, valueFormatted, tx.account, tx.description]];
+  
+  await googleRequest(url, {
+    method: 'PUT',
+    body: JSON.stringify({ values })
+  });
+}

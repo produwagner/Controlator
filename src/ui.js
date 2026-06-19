@@ -7,6 +7,8 @@ let isEditingCategories = false;
 let isEditingPayments = false;
 let currentHistPeriod = 'mensal';
 let currentConfigs = {};
+let editingTransactionId = null;
+let currentTransactions = [];
 
 // Inicializa ouvintes de eventos da interface
 export function initUI(callbacks) {
@@ -60,14 +62,32 @@ export function initUI(callbacks) {
   const formTx = document.getElementById('form-transaction');
 
   const openModal = () => {
+    editingTransactionId = null;
+    const titleEl = document.getElementById('modal-title');
+    if (titleEl) titleEl.textContent = 'Nova Transação';
     // Definir data padrão como hoje
     document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
     modal.classList.remove('hidden');
   };
 
   const closeModal = () => {
+    editingTransactionId = null;
     formTx.reset();
     modal.classList.add('hidden');
+  };
+
+  const openModalForEdit = (tx) => {
+    editingTransactionId = tx.id;
+    const titleEl = document.getElementById('modal-title');
+    if (titleEl) titleEl.textContent = 'Editar Lançamento';
+    document.getElementById('tx-date').value = tx.date;
+    document.getElementById('tx-type').value = tx.type;
+    document.getElementById('tx-category').value = tx.category;
+    document.getElementById('tx-value').value = tx.value;
+    document.getElementById('tx-account').value = tx.account;
+    document.getElementById('tx-description').value = tx.description;
+    
+    modal.classList.remove('hidden');
   };
 
   // Speed Dial Menu Flutuante no Mobile
@@ -150,8 +170,14 @@ export function initUI(callbacks) {
     const account = document.getElementById('tx-account').value;
     const description = document.getElementById('tx-description').value;
 
-    if (callbacks.onAddTransaction) {
-      callbacks.onAddTransaction({ date, type, category, value, account, description });
+    if (editingTransactionId) {
+      if (callbacks.onUpdateTransaction) {
+        callbacks.onUpdateTransaction(editingTransactionId, { date, type, category, value, account, description });
+      }
+    } else {
+      if (callbacks.onAddTransaction) {
+        callbacks.onAddTransaction({ date, type, category, value, account, description });
+      }
     }
     closeModal();
   });
@@ -488,6 +514,22 @@ export function initUI(callbacks) {
           else opt.classList.remove('active');
         });
       }
+
+      // Visually reset color picker
+      const triggerColorDot = document.getElementById('cat-add-color-trigger')?.querySelector('.color-dot');
+      if (triggerColorDot) {
+        triggerColorDot.className = 'color-dot bg-primary';
+      }
+      const triggerColorLabel = document.getElementById('cat-add-color-label');
+      if (triggerColorLabel) triggerColorLabel.textContent = 'Primary (Azul/Roxo)';
+      const colorPopover = document.getElementById('cat-add-color-popover');
+      if (colorPopover) {
+        colorPopover.querySelectorAll('.btn-color-option').forEach(opt => {
+          if (opt.getAttribute('data-value') === 'primary') opt.classList.add('active');
+          else opt.classList.remove('active');
+        });
+      }
+
       if (window.lucide) window.lucide.createIcons();
     }
     if (categoryModal) categoryModal.classList.add('hidden');
@@ -637,6 +679,22 @@ export function initUI(callbacks) {
           else opt.classList.remove('active');
         });
       }
+
+      // Visually reset color picker
+      const triggerColorDot = document.getElementById('pay-add-color-trigger')?.querySelector('.color-dot');
+      if (triggerColorDot) {
+        triggerColorDot.className = 'color-dot bg-success';
+      }
+      const triggerColorLabel = document.getElementById('pay-add-color-label');
+      if (triggerColorLabel) triggerColorLabel.textContent = 'Success (Verde)';
+      const colorPopover = document.getElementById('pay-add-color-popover');
+      if (colorPopover) {
+        colorPopover.querySelectorAll('.btn-color-option').forEach(opt => {
+          if (opt.getAttribute('data-value') === 'success') opt.classList.add('active');
+          else opt.classList.remove('active');
+        });
+      }
+
       if (window.lucide) window.lucide.createIcons();
     }
     if (paymentModal) paymentModal.classList.add('hidden');
@@ -1382,6 +1440,107 @@ export function initUI(callbacks) {
       p.classList.add('hidden');
     });
   });
+
+  // 19. Ouvinte e delegação global para Custom Color Pickers
+  document.addEventListener('click', (e) => {
+    // A) Clicou no botão de disparo (Trigger)
+    const trigger = e.target.closest('.btn-color-trigger');
+    if (trigger) {
+      e.stopPropagation();
+      const picker = trigger.closest('.custom-color-picker');
+      if (picker) {
+        const popover = picker.querySelector('.color-popover');
+        
+        // Fechar qualquer outro popover de cor aberto no momento
+        document.querySelectorAll('.color-popover').forEach(p => {
+          if (p !== popover) p.classList.add('hidden');
+        });
+
+        if (popover) {
+          popover.classList.toggle('hidden');
+        }
+      }
+      return;
+    }
+
+    // B) Clicou em uma opção de cor (Option)
+    const optionBtn = e.target.closest('.btn-color-option');
+    if (optionBtn) {
+      e.stopPropagation();
+      const picker = optionBtn.closest('.custom-color-picker');
+      if (picker) {
+        const val = optionBtn.getAttribute('data-value');
+        const hiddenInput = picker.querySelector('input[type="hidden"]');
+        if (hiddenInput) {
+          hiddenInput.value = val;
+          hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // Atualizar o trigger visualmente
+        const triggerBtn = picker.querySelector('.btn-color-trigger');
+        if (triggerBtn) {
+          const dotEl = triggerBtn.querySelector('.color-dot');
+          if (dotEl) {
+            dotEl.className = `color-dot bg-${val}`;
+          }
+          const labelEl = triggerBtn.querySelector('span:not(.color-dot)');
+          if (labelEl) {
+            const title = optionBtn.getAttribute('title') || val;
+            labelEl.textContent = title;
+          }
+        }
+
+        // Atualizar a classe active entre as opções
+        picker.querySelectorAll('.btn-color-option').forEach(opt => {
+          opt.classList.remove('active');
+        });
+        optionBtn.classList.add('active');
+
+        // Fechar o popover
+        const popover = picker.querySelector('.color-popover');
+        if (popover) {
+          popover.classList.add('hidden');
+        }
+      }
+      return;
+    }
+
+    // C) Clicou em qualquer outro lugar: fechar todos os popovers de cores
+    document.querySelectorAll('.color-popover').forEach(p => {
+      p.classList.add('hidden');
+    });
+  });
+
+  // 20. Ouvinte e delegação para ações de Transações (Editar e Excluir)
+  const transactionsTableBody = document.getElementById('transactions-table-body');
+  if (transactionsTableBody) {
+    transactionsTableBody.addEventListener('click', (e) => {
+      // A) EDITAR TRANSAÇÃO
+      const btnEdit = e.target.closest('.btn-edit-tx');
+      if (btnEdit) {
+        e.stopPropagation();
+        const txId = btnEdit.getAttribute('data-id');
+        const tx = currentTransactions.find(t => t.id === txId);
+        if (tx) {
+          openModalForEdit(tx);
+        }
+      }
+
+      // B) EXCLUIR TRANSAÇÃO
+      const btnDelete = e.target.closest('.btn-delete-tx');
+      if (btnDelete) {
+        e.stopPropagation();
+        const txId = btnDelete.getAttribute('data-id');
+        const tx = currentTransactions.find(t => t.id === txId);
+        const desc = tx ? tx.description : 'lançamento';
+        if (confirm(`Deseja realmente excluir o lançamento "${desc}"?`)) {
+          if (callbacks.onDeleteTransaction) {
+            callbacks.onDeleteTransaction(txId);
+          }
+        }
+      }
+    });
+  }
 }
 
 // Helpers para exibir / ocultar loading
@@ -2307,6 +2466,7 @@ function renderDailyChart(expensesValues, labels) {
 
 // Popula a tabela de Transações com filtros aplicados
 export function renderTransactionsTable(transactions) {
+  currentTransactions = transactions;
   const tbody = document.getElementById('transactions-table-body');
   tbody.innerHTML = '';
 
@@ -2362,7 +2522,7 @@ export function renderTransactionsTable(transactions) {
   });
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">Nenhum lançamento corresponde aos filtros.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Nenhum lançamento corresponde aos filtros.</td></tr>`;
     return;
   }
 
@@ -2399,6 +2559,14 @@ export function renderTransactionsTable(transactions) {
       <td><strong>${tx.description}</strong></td>
       <td class="text-right ${tx.type === 'Receita' ? 'color-success' : tx.type === 'Despesa' ? 'color-danger' : 'color-info'}">
         <strong>${tx.type === 'Receita' ? '+' : '-'}&nbsp;${formatBRL(tx.value)}</strong>
+      </td>
+      <td class="text-center" style="white-space: nowrap;">
+        <button type="button" class="btn-edit-tx" data-id="${tx.id}" title="Editar Lançamento">
+          <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i>
+        </button>
+        <button type="button" class="btn-delete-tx" data-id="${tx.id}" title="Excluir Lançamento">
+          <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+        </button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -2867,6 +3035,22 @@ function getInlinePaymentIconOptionsHTML(selectedIcon) {
   `).join('');
 }
 
+function getInlineColorOptionsHTML(selectedColor) {
+  const colors = [
+    { value: 'primary', title: 'Primary (Azul/Roxo)' },
+    { value: 'info', title: 'Info (Ciano)' },
+    { value: 'success', title: 'Success (Verde)' },
+    { value: 'warning', title: 'Warning (Amarelo)' },
+    { value: 'danger', title: 'Danger (Vermelho)' },
+    { value: 'secondary', title: 'Secondary (Cinza)' }
+  ];
+  return colors.map(c => `
+    <button type="button" class="btn-color-option ${c.value === selectedColor ? 'active' : ''}" data-value="${c.value}" title="${c.title}">
+      <span class="color-dot bg-${c.value}"></span>
+    </button>
+  `).join('');
+}
+
 // Alimenta o select de categorias no modal de transações
 export function populateCategorySelectors(configs) {
   const txCategorySelect = document.getElementById('tx-category');
@@ -2986,9 +3170,17 @@ export function renderCategoriesSettingsForm(configs) {
               </div>
             </div>
           </div>
-          <select id="cat-edit-${id}-color">
-            ${getColorOptions(color)}
-          </select>
+          <div class="custom-color-picker inline-picker" data-id="${id}" data-type="category" style="position: relative;">
+            <input type="hidden" id="cat-edit-${id}-color" value="${color}" />
+            <button type="button" class="btn-color-trigger" id="cat-edit-${id}-color-trigger" title="Alterar Cor">
+              <span class="color-dot bg-${color}"></span>
+            </button>
+            <div class="color-popover hidden" id="cat-edit-${id}-color-popover">
+              <div class="color-popover-grid" style="grid-template-columns: repeat(3, 1fr); padding: 4px; gap: 4px;">
+                ${getInlineColorOptionsHTML(color)}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <button type="button" class="btn-delete-item btn-delete-category" data-id="${id}" title="Excluir Categoria">
@@ -3093,9 +3285,17 @@ export function renderPaymentsSettingsForm(configs) {
               </div>
             </div>
           </div>
-          <select id="pay-edit-${id}-color">
-            ${getColorOptions(color)}
-          </select>
+          <div class="custom-color-picker inline-picker" data-id="${id}" data-type="payment" style="position: relative;">
+            <input type="hidden" id="pay-edit-${id}-color" value="${color}" />
+            <button type="button" class="btn-color-trigger" id="pay-edit-${id}-color-trigger" title="Alterar Cor">
+              <span class="color-dot bg-${color}"></span>
+            </button>
+            <div class="color-popover hidden" id="pay-edit-${id}-color-popover">
+              <div class="color-popover-grid" style="grid-template-columns: repeat(3, 1fr); padding: 4px; gap: 4px;">
+                ${getInlineColorOptionsHTML(color)}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <button type="button" class="btn-delete-item btn-delete-payment" data-id="${id}" title="Excluir Conta">

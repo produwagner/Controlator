@@ -289,12 +289,13 @@
                   <th>Meio</th>
                   <th>Descrição</th>
                   <th class="text-right">Valor</th>
+                  <th class="text-center" style="width: 80px;">Ações</th>
                 </tr>
               </thead>
               <tbody id="transactions-table-body">
                 <!-- Gerado dinamicamente -->
                 <tr>
-                  <td colspan="6" class="text-center text-muted">Nenhum lançamento encontrado.</td>
+                  <td colspan="7" class="text-center text-muted">Nenhum lançamento encontrado.</td>
                 </tr>
               </tbody>
             </table>
@@ -859,15 +860,23 @@
               </select>
             </div>
             <div class="input-control w-half">
-              <label for="cat-color">Cor Visual</label>
-              <select id="cat-color" required>
-                <option value="primary">Primary (Azul/Roxo)</option>
-                <option value="info">Info (Ciano)</option>
-                <option value="success">Success (Verde)</option>
-                <option value="warning">Warning (Amarelo)</option>
-                <option value="danger">Danger (Vermelho)</option>
-                <option value="secondary">Secondary (Cinza)</option>
-              </select>
+              <label>Cor Visual</label>
+              <div class="custom-color-picker" id="cat-add-color-container">
+                <input type="hidden" id="cat-color" value="primary" />
+                <button type="button" class="btn-color-trigger" id="cat-add-color-trigger" style="justify-content: flex-start; gap: 8px; width: 100%;">
+                  <span class="color-dot bg-primary"></span> <span id="cat-add-color-label" style="font-size:0.85rem; color:var(--text-secondary);">Primary (Azul/Roxo)</span>
+                </button>
+                <div class="color-popover hidden" id="cat-add-color-popover" style="width: 240px; bottom: 38px;">
+                  <div class="color-popover-grid" style="grid-template-columns: repeat(6, 1fr); padding: 4px; gap: 4px;">
+                    <button type="button" class="btn-color-option active" data-value="primary" title="Primary (Azul/Roxo)"><span class="color-dot bg-primary"></span></button>
+                    <button type="button" class="btn-color-option" data-value="info" title="Info (Ciano)"><span class="color-dot bg-info"></span></button>
+                    <button type="button" class="btn-color-option" data-value="success" title="Success (Verde)"><span class="color-dot bg-success"></span></button>
+                    <button type="button" class="btn-color-option" data-value="warning" title="Warning (Amarelo)"><span class="color-dot bg-warning"></span></button>
+                    <button type="button" class="btn-color-option" data-value="danger" title="Danger (Vermelho)"><span class="color-dot bg-danger"></span></button>
+                    <button type="button" class="btn-color-option" data-value="secondary" title="Secondary (Cinza)"><span class="color-dot bg-secondary"></span></button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -926,15 +935,23 @@
 
           <div class="form-row">
             <div class="input-control w-half">
-              <label for="pay-color">Cor Visual</label>
-              <select id="pay-color" required>
-                <option value="success">Success (Verde)</option>
-                <option value="primary">Primary (Azul/Roxo)</option>
-                <option value="info">Info (Ciano)</option>
-                <option value="warning">Warning (Amarelo)</option>
-                <option value="danger">Danger (Vermelho)</option>
-                <option value="secondary">Secondary (Cinza)</option>
-              </select>
+              <label>Cor Visual</label>
+              <div class="custom-color-picker" id="pay-add-color-container">
+                <input type="hidden" id="pay-color" value="success" />
+                <button type="button" class="btn-color-trigger" id="pay-add-color-trigger" style="justify-content: flex-start; gap: 8px; width: 100%;">
+                  <span class="color-dot bg-success"></span> <span id="pay-add-color-label" style="font-size:0.85rem; color:var(--text-secondary);">Success (Verde)</span>
+                </button>
+                <div class="color-popover hidden" id="pay-add-color-popover" style="width: 240px; bottom: 38px;">
+                  <div class="color-popover-grid" style="grid-template-columns: repeat(6, 1fr); padding: 4px; gap: 4px;">
+                    <button type="button" class="btn-color-option active" data-value="success" title="Success (Verde)"><span class="color-dot bg-success"></span></button>
+                    <button type="button" class="btn-color-option" data-value="primary" title="Primary (Azul/Roxo)"><span class="color-dot bg-primary"></span></button>
+                    <button type="button" class="btn-color-option" data-value="info" title="Info (Ciano)"><span class="color-dot bg-info"></span></button>
+                    <button type="button" class="btn-color-option" data-value="warning" title="Warning (Amarelo)"><span class="color-dot bg-warning"></span></button>
+                    <button type="button" class="btn-color-option" data-value="danger" title="Danger (Vermelho)"><span class="color-dot bg-danger"></span></button>
+                    <button type="button" class="btn-color-option" data-value="secondary" title="Secondary (Cinza)"><span class="color-dot bg-secondary"></span></button>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="input-control w-half">
               <label>Ícone</label>
